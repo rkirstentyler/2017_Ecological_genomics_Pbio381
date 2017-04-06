@@ -1,0 +1,250 @@
+---
+title: "HW3"
+author: "R Kirsten Tyler"
+date: "3/31/2017"
+output: html_document
+---
+##Homework 3## 
+##Population genomic diversity and structure##
+
+```{r}
+setwd("~/Documents/Ecological_Genomics_PBIO381/HW3_data")
+library(ggplot2)
+library(vcfR)
+library(adegenet)
+```
+
+
+Listing individuals 1 through 24 with missing data information (total amount missing data and frequency per indiv)
+```{}
+[rtyler1@pbio381 reads2snps]$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --missing-indv --out ~/SSW_class_filtered_missing-indv```
+
+[rtyler1@pbio381 ~]$ cat SSW_class_filtered_missing-indv.imiss
+```
+
+
+INDV	N_DATA	N_GENOTYPES_FILTERED	N_MISS	F_MISS
+03	7486938	0	6207801	0.829151
+07	7486938	0	7078947	  0.945506
+08	7486938	0	6127261	0.818393
+09	7486938	0	6497618	0.867861
+10	7486938	0	6666490	0.890416
+14	7486938	0	6892567	  0.920612
+15	7486938	0	6124185	0.817983
+19	7486938	0	5856505	0.78223
+20	7486938	0	6283854	0.839309
+22	7486938	0	7180535	  0.959075
+23	7486938	0	6713952	0.896755
+24	7486938	0	7032139	  0.939254
+26	7486938	0	7059631	  0.942926
+27	7486938	0	5887479	0.786367
+28	7486938	0	6693485	0.894022
+29	7486938	0	6833050	  0.912663
+31	7486938	0	6202289	0.828415
+32	7486938	0	6218446	0.830573
+33	7486938	0	5842156	0.780313
+34	7486938	0	6462177	0.863127
+35	7486938	0	6020038	0.804072
+36	7486938	0	6398392	0.854607
+37	7486938	0	6519830	0.870827
+38	7486938	0	5888292	0.786475
+
+
+I've decided to filter and remove indivs with >90% missing data from the raw dataset. Using vcftools command --remove-indv, take out 6 chosen indiv with >90% missing data in original data set
+```{}
+[rtyler1@pbio381 reads2snps]$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --remove-indv 07 --remove-indv 14 --remove-indv 22 --remove-indv 24 --remove-indv 26 --remove-indv 29 --recode --out ~/SSW_by18inds.txt.vcf
+```
+
+After removing the individuals with lots of missing data, then I apply the MAF filter 0.02 0.1 to both data sets (original 24 indivs and new 18 indivs):
+```{}
+[rtyler1@pbio381 ~]$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --min-alleles 2 --max-alleles 2 --maf 0.02 --max-missing 0.8 --recode --out ~/SSW24_all_bial.MAF0.02.Miss0.8  
+
+##After filtering, kept 5317 out of a possible 7486938 Sites
+
+[rtyler1@pbio381 ~]$ vcftools --vcf SSW_by18inds.txt.vcf.recode.vcf --min-alleles 2 --max-alleles 2 --maf 0.02 --max-missing 0.8 --recode --out ~/SSW18_all_biallelic.MAF0.02.Miss0.8  
+
+##After filtering, kept 12578 out of a possible 7486938 Sites
+
+[rtyler1@pbio381 ~]$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --min-alleles 2 --max-alleles 2 --maf 0.1 --max-missing 0.8 --recode --out ~/SSW24_all_bial.MAF0.1.Miss0.8 
+
+##After filtering, kept 1100 out of a possible 7486938 Sites
+
+[rtyler1@pbio381 ~]$ vcftools --vcf SSW_by18inds.txt.vcf.recode.vcf --min-alleles 2 --max-alleles 2 --maf 0.1 --max-missing 0.8 --recode --out ~/SSW18_all_biallelic.MAF0.1.Miss0.8  
+
+##After filtering, kept 3920 out of a possible 7486938 Sites
+```
+We see a big difference in the number of SNPs kept between the data sets!
+
+Using Cyberduck, I downloaded the files onto my computer. Quack quack.
+
+Now I'll read the new files with MAF filters into R:
+```{r}
+SSW18_2 <- read.vcfR("~/Documents/Ecological_Genomics_PBIO381/HW3_data/SSW18_all_biallelic.MAF0.02.Miss0.8.recode.vcf")
+SSW18_10 <- read.vcfR("~/Documents/Ecological_Genomics_PBIO381/HW3_data/SSW18_all_biallelic.MAF0.1.Miss0.8.recode.vcf")
+SSW24_2 <- read.vcfR("~/Documents/Ecological_Genomics_PBIO381/HW3_data/SSW24_all_bial.MAF0.02.Miss0.8.recode.vcf")
+SSW24_10 <- read.vcfR("~/Documents/Ecological_Genomics_PBIO381/HW3_data/SSW24_all_bial.MAF0.1.Miss0.8.recode.vcf")
+
+head(SSW18_2)
+```
+
+But before we continue, we need to convert our vcf files into genlight files and fix the fields. Let's do it.
+```{r}
+gSSW18_2 <- vcfR2genlight(SSW18_2)
+gSSW18_10 <- vcfR2genlight(SSW18_10)
+gSSW24_2 <- vcfR2genlight(SSW24_2)
+gSSW24_10 <- vcfR2genlight(SSW24_10)
+
+print(gSSW18_2) #it worked!
+```
+
+Fixing fields...
+```{r}
+ssw_meta <- read.table("~/Documents/Ecological_Genomics_PBIO381/HW3_data/ssw_healthloc.txt", header=T) # read in the metadata
+ssw_meta <- ssw_meta[order(ssw_meta$Individual),] # sort it by Individual ID
+
+# Confirm the ID's are ordered the same in new matrices and ssw_meta:
+gSSW18_2$ind.names
+gSSW18_10$ind.names
+gSSW24_2$ind.names
+gSSW24_10$ind.names
+ssw_meta$Individual
+
+# assign locality info
+gSSW18_2$pop <- ssw_meta$Location
+gSSW18_10$pop <- ssw_meta$Location
+gSSW24_2$pop <- ssw_meta$Location
+gSSW24_10$pop <- ssw_meta$Location 
+
+# assign disease status
+gSSW18_2$other <- as.list(ssw_meta)
+gSSW18_10$other <- as.list(ssw_meta)
+gSSW24_2$other <- as.list(ssw_meta)
+gSSW24_10$other <- as.list(ssw_meta)
+```
+
+Finally we can compute PCA on the SNP genotypes for all data sets:
+```{r}
+PCA18_2 <- glPca(gSSW18_2, nf=4, parallel=F)
+PCA18_10 <- glPca(gSSW18_10, nf=4, parallel=F)
+PCA24_2 <- glPca(gSSW24_2, nf=4, parallel=F)
+PCA24_10 <- glPca(gSSW24_10, nf=4, parallel=F)
+print(PCA18_2)
+```
+
+And now let's plot the MAF 2% to visualize differences:
+
+```{r}
+#First plot is 18 individuals with MAF 2% in SNP-PCA space with locality labels.
+#PCA on 18 Indvs SSW Data MAF 2% (12578 SNPs)
+par(mfrow=c(1,2))
+plot(PCA18_2$scores[,1], PCA18_2$scores[,2], 
+     cex=2, pch=20, col=gSSW18_2$pop, 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="18 Indvs MAF 2%")
+legend("topleft", 
+       legend=unique(gSSW18_2$pop), 
+       pch=20, 
+       col=c("black", "red"))
+
+#Second plot is 24 individuals with MAF 2% in SNP-PCA space with locality labels.
+#PCA on 24 Indvs SSW Data MAF 2% (5317 SNPs)
+plot(PCA24_2$scores[,1], PCA24_2$scores[,2], 
+     cex=2, pch=20, col=gSSW24_2$pop, 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="24 Indvs MAF 2%")
+legend("topleft", 
+       legend=unique(gSSW24_2$pop), 
+       pch=20, 
+       col=c("black", "red"))
+```
+
+
+
+```{r}
+#Third plot is 18 individuals with MAF 2% in SNP-PCA space with disease status labels.
+#PCA on 18 Indivs SSW Data MAF 2% (12578 SNPs)
+par(mfrow=c(1,2))
+plot(PCA18_2$scores[,1], PCA18_2$scores[,2], 
+     cex=2, pch=20, col=as.factor(gSSW18_2$other$Trajectory), 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="18 Indivs MAF 2%")
+legend("topleft", 
+       legend=unique(gSSW18_2$other$Trajectory), 
+       pch=20, 
+       col=as.factor(unique(gSSW18_2$other$Trajectory)))
+
+#Fourth plot is 24 individuals with MAF 2% in SNP-PCA space with disease status labels.
+#PCA on 24 Indivs SSW Data MAF 2% (5317 SNPs)
+plot(PCA24_2$scores[,1], PCA24_2$scores[,2], 
+     cex=2, pch=20, col=as.factor(gSSW24_2$other$Trajectory), 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="24 Indivs MAF 2%")
+legend("topleft", 
+       legend=unique(gSSW24_2$other$Trajectory), 
+       pch=20, 
+       col=as.factor(unique(gSSW24_2$other$Trajectory)))
+```
+
+
+Plotting MAF 10% to visualize differences:
+
+```{r}
+#First plot is 18 individuals with MAF 10% in SNP-PCA space with locality labels.
+#PCA on 18 Indvs SSW Data MAF 10% (3920 SNPs)
+par(mfrow=c(1,2))
+plot(PCA18_10$scores[,1], PCA18_10$scores[,2], 
+     cex=2, pch=20, col=gSSW18_10$pop, 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="18 Indvs MAF 10%")
+legend("topleft", 
+       legend=unique(gSSW18_10$pop), 
+       pch=20, 
+       col=c("black", "red"))
+
+#Second plot is 24 individuals with MAF 10% in SNP-PCA space with locality labels.
+#PCA on 24 Indvs SSW Data MAF 10% (1100 SNPs)
+plot(PCA24_10$scores[,1], PCA24_10$scores[,2], 
+     cex=2, pch=20, col=gSSW24_10$pop, 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="24 Indvs MAF 10%")
+legend("topleft", 
+       legend=unique(gSSW24_10$pop), 
+       pch=20, 
+       col=c("black", "red"))
+```
+
+
+```{r}
+#Third plot is 18 individuals with MAF 10% in SNP-PCA space with disease status labels.
+#PCA on 18 Indivs SSW Data MAF 10% (3920 SNPs)
+par(mfrow=c(1,2))
+plot(PCA18_10$scores[,1], PCA18_10$scores[,2], 
+     cex=2, pch=20, col=as.factor(gSSW18_10$other$Trajectory), 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="18 Indivs MAF 10%")
+legend("topleft", 
+       legend=unique(gSSW18_10$other$Trajectory), 
+       pch=20, 
+       col=as.factor(unique(gSSW18_10$other$Trajectory)))
+
+#Fourth plot is 24 individuals with MAF 10% in SNP-PCA space with disease status labels.
+#PCA on 24 Indivs SSW Data MAF 10% (1100 SNPs)
+plot(PCA24_10$scores[,1], PCA24_10$scores[,2], 
+     cex=2, pch=20, col=as.factor(gSSW24_10$other$Trajectory), 
+     xlab="Principal Component 1", 
+     ylab="Principal Component 2", 
+     main="24 Indivs MAF 10%")
+legend("topleft", 
+       legend=unique(gSSW24_10$other$Trajectory), 
+       pch=20, 
+       col=as.factor(unique(gSSW24_10$other$Trajectory)))
+```
+
+That's all she wrote!
