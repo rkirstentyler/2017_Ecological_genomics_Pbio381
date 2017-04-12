@@ -1,0 +1,85 @@
+---
+title: "EcoGeno 4/12/17"
+author: "R Kirsten Tyler"
+date: "4/12/2017"
+output: html_document
+---
+
+*Filtering the OTU table*
+
+1. use vchime_ref to remove potential chimeric sequences from my rep_set.fna
+
+2. Remove OTUs matching those identified as chimeric from OTU table
+
+3. Remove OTUs from rep_set_aligned and make phylogenetic tree
+
+Filter out chimeric sequences (chimeric seq's = technical errors that arise in any pcr; combo of two pcr sequences). They're not common when doing shot gun sequencing of a large area (like rna data set) but they're more common when doing amplicon sequenicng with closely related sequencing. they can look like novel organisms. we wantt to get rid of those. we do that by blasting to a database to identify the fact that there are two pieces of known taxa instead of a novel taxa.
+  Use V-search (free) in terminal
+  
+1. --chimera = we want to id chimera sequences and make a fasta file of sequences 
+```{r}
+vsearch --uchime_ref /data/project_data/16s/otu_table/rep_set.fna --chimeras ~/16s_analysis/mc2_w_tax_no_pynast_failures_chimeras.fasta --db /usr/lib/python2.7/site-packages/qiime_default_reference/gg_13_8_otus/rep_set/97_otus.fasta
+```
+
+2. now we have fasta file of seq we don't want. let's remove those punks.
+```{r}
+filter_otus_from_otu_table.py -i /data/project_data/16s/otu_table/otu_table_mc2_w_tax_no_pynast_failures.biom -o otu_table_mc2_w_tax_no_pynast_failures_no_chimeras.biom -e ~/16s_analysis/mc2_w_tax_no_pynast_failures_chimeras.fasta
+```
+
+3. Remove these chimeric OTUs from rep_set_aligned and re-make the phylogenetic tree
+
+```{r}
+filter_fasta.py -f /data/project_data/16s/otu_table/pynast_aligned_seqs/rep_set_aligned_pfiltered.fasta -o ~/16s_analysis/rep_set_aligned_pfiltered_no_chimeras.fasta -a ~/16s_analysis/mc2_w_tax_no_pynast_failures_chimeras.fasta -n
+```
+
+3a. make phylogeny
+
+```{r}
+make_phylogeny.py -i ~/16s_analysis/rep_set_aligned_pfiltered_no_chimeras.fasta -o ~/16s_analysis/rep_set_no_chimeras.tre
+```
+
+Frequency Filtering
+
+Now we'll get rid of low frequency OTUs - - our filter will get rid of OTUs with fewer than 50 total counts across all samples (--min_count 50) as well as any OTU that is in fewer than 25% of samples
+```{r}
+filter_otus_from_otu_table.py -i otu_table_mc2_w_tax_no_pynast_failures_no_chimeras.biom -o otu_table_mc2_w_tax_no_pynast_failures_no_chimeras_frequency_filtered.biom --min_count 50 --min_samples 44
+
+```
+
+How many OTUs are left? 
+```{r}
+biom summarize-table -i otu_table_mc2_w_tax_no_pynast_failures_no_chimeras_frequency_filtered.biom
+```
+
+Now we have an OTU table that makes us happy.
+
+*Core Diversity analyses in QIME*
+
+```{r}
+core_diversity_analyses.py -o core_diversity_filtered -i otu_table_mc2_w_tax_no_pynast_failures_no_chimeras_frequency_filtered.biom -m ~/Po/MiSeq/joined/map.txt -t rep_set_no_chimeras.tre -e 20000 -a 8
+```
+a directory of files in a webpage just for you! 
+
+"As we start to visualize the data and test hypotheses, it’s important to think about how the data is normalized. As with all sequencing data, there will be more reads for some samples than others due to technical aspects of the sequencing. Generally, the options for normalizing are to rarefy the data (randomly select the same number of reads from each sample), transform count numbers to proportional abundances, or normalize the count numbers by the total size of that sample’s library. In the above command, the ‘-e 20000’ indicates that the data will be rarefied to 20,000 counts per sample.
+The appropriate normalization method might be different for different tests or analyses, so just be aware of which one is being used."
+
+-e 20000 indicates that the data will be "rarified" to 20000 counts per sample. this is so the ones that have less than 20k are not represented as more significant
+
+Checking out the directory webpage 
+- weighted takes into account abundance of OTUs 
+- unweighted does not
+- taxonomic summary results
+- alpha diversity = how many OTUs in one sample vs another (no sig results here)
+
+looking at the weighted PCA plot (the top one)
+- you can use the "colors" tab to change what you're comparing (final phenotype, trajectory...)
+
+**this is awesome**
+
+Now look at the separate R script for today to look at how to analyze this stuff in R!!
+    
+
+
+
+
+

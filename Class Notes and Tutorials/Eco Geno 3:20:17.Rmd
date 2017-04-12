@@ -1,244 +1,129 @@
 ---
-title: "Eco Geno 3/20/17"
+title: "EcoGeno 4/10/17"
 author: "R Kirsten Tyler"
-date: "3/20/2017"
+date: "4/10/2017"
 output: html_document
 ---
+##Analyzing 16s AmipliconSeq Data##
 
-Today: 
+From tutorial: For these analyses, we will be using QIIME and phyloseq (an R package). QIIME will be used to make and filter the OTU table and phyloseq will be used to visualize the data and test hypotheses. There are many, many programs to analyze 16s data, these are only a few options!
 
-**Finishing allele frequency and nucleotide diversity**
+16s is the gene marker most widely used in bacterial studies because everyone uses it and we can compare to other studies. It's conserved enough so that every individual in a spp will have the same gene. 
 
-- estimate allele frequencies between H and S >> f(H) - f(S)
+making a directory to store files related to this section of the class
 
-- Fst between H vs. S
-    >>output to local machine (my laptop)
-    >>plot in R
-    
-- Estimate synonymous nucleotide diversity, non-synonymous diversity, and the ratio of them
-    >>output to local machine
-    >>compare to Romiguier
-
-
-*In Terminal, let's use VSFtools to filter genotypes and gzip that ish*    
 ```{}
-##PATH TO THE FINAL VCF DATA (all 24 INDS): 
-
-/data/project_data/snps/reads2snps/SSW_by24inds.txt.vcf.gz
-Use VCFTools to filter genotypes and save in your home directory in gzipped format:
- 
-$ cd /data/project_data/snps/reads2snps
-$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --min-alleles 2 --max-alleles 2 --maf 0.02 --max-missing 0.8 --recode --out ~/SSW_all_biallelic.MAF0.02.Miss0.8  
-$ cd ~/
-$ gzip SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf
+mkdir 16s_analysis
+cd 16s_analysis
 ```
 
-**Let's practice parcing out different groups!!**
-We will re-create our text files containing the individual ID's for just Sick (and separately, just Healthy) individuals
+OTU: Operational Taxanomic Unit. OTUs are clusters of microorganisms grouped by sequence similarity of a specific taxonomic marker gene, in this case the 16s gene.
 
-Use grep to pull out individuals that we want
-Use cut to grab the first column (individual sample IDs)
+We'll use an OTU Table!
 
+Take a look at the data:
 ```{}
-##grab metadata from here: 
-/data/project_data/snps/reads2snps/ssw_healthloc.txt
-
-##then use grep and cut to get what we WANT
-$ cd /data/project_data/snps/reads2snps/
-$ grep "HH" ssw_healthloc.txt | cut -f1 >~/H_SampleIDs.txt
-
-##let's check out what we have here. what did we grep and cut? wc = word count
-$ wc H_SampleIDs.txt 
-##8  8 24 H_SampleIDs.txt 
-
-##more grepping and cutting
-cd /data/project_data/snps/reads2snps/
-$ grep "HH" ssw_healthloc.txt | cut -f1 >~/H_SampleIDs.txt
-$ grep "HS\|SS" ssw_healthloc.txt | cut -f1 >~/S_SampleIDs.txt
+head /data/project_data/16s/map.txt
 ```
 
-**Estimate the frequency of alleles at each SNP**
+SampleID	BarcodeSequence	LinkerPrimerSequence	Day	individual	Phenotype	Pheno_num	Final_phenotype	Trajectory	Tide	Description							
+01-5-05			0	1	Sick	1	Sick	SS	intertidal	1-5/5							
+01-5-08			3	1	Sick 	3	Sick	SS	intertidal	1-5/8							
+01-5-11			6	1	Dead	5	Sick	SS	intertidal	1-5/11							
+02-5-05			0	2	Sick	1	Sick	SS	intertidal	2-5/5							
+02-5-08			3	2	Sick	2	Sick	SS	intertidal	2-5/8							
+02-5-11			6	2	Sick	2	Sick	SS	intertidal	2-5/11							
+02-5-14			9	2	Sick	2	Sick	SS	intertidal	2-5/14							
+02-5-17			12	2	Sick	2	Sick	SS	intertidal	2-5/17							
+02-5-20			15	2	Dead	5	Sick	SS	intertidal	2-5/20		
+
+
+Barcode sequence = day 
+Phenotype = if sample was sick or healthy at the time she took the sample
+Number = how sick it was. 0 = healthy, 1,2,3,4 = varying degrees of sick, 5 = dead
+Final phenotype = if sample was sick or healthy during 
+
+Validate mapping file: does QIIME like the file? Does the file pass quality tests?
 
 ```{}
-##for healthy:
-vcftools --gzvcf SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf.gz --freq2 --keep H_SampleIDs.txt --out H_AlleleFreqs
-
-##and for sick: 
-$ vcftools --gzvcf SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf.gz --freq2 --keep S_SampleIDs.txt --out S_AlleleFreqs
+validate_mapping_file.py -m /data/project_data/16s/map.txt -o validate_map -p -b
 ```
 
-**Let's calculate Wright's Fst betweeen H and S groups = generate Fst values**
+This generated a file which can be downloaded onto my computer with cyberduck. We did that and checked out the file. Looks like there is some missing data but everything is all set to run the rest of our analysis
 
-```{}
-##we are gtelling it to calc fst between the two groups wier...H_sample and weir...S_sample and then what we want to call the file (--out HvS...)
-
-vcftools --gzvcf SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf.gz --weir-fst-pop H_SampleIDs.txt --weir-fst-pop S_SampleIDs.txt --out HvS_Fst
+Now, pairing paired end reads and quality filtering: 
+```{r}
+multiple_join_paired_ends.py -i /data/project_data/16s/data_files -o ~/16s_analysis/joined --read1_indicator _R1 --read2_indicator _R2
 ```
 
-**Let's download these files into our local machines**
-Open up a new terminal and transfer the files into a folder on to our computer
+Now, naming the files differently so that QIIME will like them:
+
 ```{}
-##here we are in a new terminal (not signed in as rtyler1pbio381 bla bla)
+cd ~/16s_analysis/joined
+bash /data/project_data/16s/remove-underscore.sh
+bash /data/project_data/16s/remove-R1.sh
+```
 
-ip0af52e1e:~ kirstensmac$ cd /Users/kirstensmac/Documents/Ecological_Genomics_PBIO381/Pop_Gen 
-ip0af52e1e:Pop_Gen kirstensmac$ scp rtyler1@pbio381.uvm.edu:~/HvS_Fst.weir.fst .
+OK. 
 
-rtyler1@pbio381.uvm.edu's password: 
-HvS_Fst.weir.fst                              100%  114KB 114.2KB/s   00:00    
-ip0af52e1e:Pop_Gen kirstensmac$ scp rtyler1@pbio381.uvm.edu:~/*.frq .
+Now let's quality filter and demultiplex our files (takes 10 min)
 
-rtyler1@pbio381.uvm.edu's password: 
-H_AlleleFreqs.frq                             100%  425KB 424.9KB/s   00:00    
-ip0af52e1e:Pop_Gen kirstensmac$ scp rtyler1@pbio381.uvm.edu:~/S_AlleleFreqs.frq .
+```{}
+multiple_split_libraries_fastq.py -i ~/16s_analysis/joined -o ~/16s_analysis/filtered -m sampleid_by_file --include_input_dir_path --remove_filepath_in_name  --mapping_indicator /data/project_data/16s/map.txt
+```
 
-rtyler1@pbio381.uvm.edu's password: 
-S_AlleleFreqs.frq                             100%  448KB 448.4KB/s   00:00    
+go into the folder to see our data and make sure it looks ok. head the file to make sure you see the correct SampleIDs.
+```{}
+cd ~/16s_analysis/filtered
+
+head seqs.fna
 
 ```
 
-**fix the files so R will like them**
+>02-5-05_0 M02780:138:000000000-ATTB1:1:1101:21367:1238 1:N:0:GTAGCGGA+CGTCTAAT orig_bc=AAAAAAAAAAAA new_bc=AAAAAAAAAAAA bc_diffs=0
+CCTACGGGCGGCTGCAGTGGGGAATCTTGCACAATGGAGGAAACTCTGATGCAGCCATGCCGCGTGTATGAAGAAGGCCTTCGGGTTGTAAAGTACTTTCAGTGAGGAGGAATGGTTAGTAGTTAATAATTGCTTGCTGTGACGTTACTCGCAGAAGAAGGACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCGAGCGTTGATCGGAATTATTGGGCGTAAAGGGTACGCAGGCGGTTTGTTAAGCGAGATGTGAAAGCCCAGAGCTCAACTTGGGGACTGCATTTTAA
 
-**Let's look at the data in R**
+check to make sure our analysis is ok by calling the "test" command, then remove the folder bc we don't need it
 
 ```{r}
-setwd("~/Documents/Ecological_Genomics_PBIO381/Pop_Gen")
+extract_seqs_by_sample_id.py -i seqs.fna -o test -s 04-5-05
 
-list.files()
-
-H_freq <- read.table("H_AlleleFreqs.frq", header = T)
-S_freq <- read.table("S_AlleleFreqs.frq", header = T)
-
-str(H_freq)
-
-All_freq <- merge(H_freq, S_freq, by = c("CHROM", "POS"))
-str(All_freq) #shows the structure of the data
-head(All_freq)
-
-All_freq$diff <- (All_freq$H_ALT - All_freq$S_ALT)
-hist(All_freq$diff, breaks=50, col="red", main = "Allele frequency difference (H-S)")
-
-fst <- read.table("HvS_Fst.weir.fst", header=T)
-All_freq.fst <- merge(All_freq, fst, by=c("CHROM", "POS"))
-
-plot(All_freq.fst$diff, All_freq.fst$WEIR_AND_COCKERHAM_FST, xlab="Allele frequency difference (H-S)", ylab="Fst", main="Healthy vs. Sick SNP divergence")
-
-# we are seeing as the allele frequecy increases, fst increases. points are SNPs. fst is the proportion of allele frequency variation that is distributed bw groups. for allele freqencies, positive numbers are H, negative numbers are S. potentially an immune response??
-
-#once we can visualize our results like this and see the potential outliers (which SNPs are most divergent?? which SNPs are being effected by disease?), we can take  look at the outlying SNPs...look at the gene ID...and eventually look at what the funtion is
-
-#how can we find which of those genes have the greatest divergence?? the which command!!!
-
-All_freq[which(All_freq.fst$WEIR_AND_COCKERHAM_FST>0.2),]
-#they seem to be on different transcripts
-
-#once we have the annotation info, we can merge that file in R and ask what are the funtions of these transcripts?
-
+rm test
 ```
 
+Clustering OTUs and building the OTU table (this takes like 4 days)
+---see tutorial online for detailed description of what this does. I don't have time to write it all down here.
+```{}
+cd ~/16s_analysis
 
-***March 22, 2017 - continuing on with this tutorial:***       
+pick_open_reference_otus.py -i ~/16s_analysis/filtered/seqs.fna -o ~/16s_analysis/otus  --parallel --jobs_to_start 16
+```
 
-
-
-
-
-
-
-Let's get the estimates for nucleotide diversity in synon and nonsynon sites. It's also going to give us confidence intervals with bootstraps
+Now to look at it
 
 ```{}
-##first we are looking at the data: 
-[rtyler1@pbio381 reads2snps]$ head SSW_by24inds.txt.fas
->TRINITY_DN47185_c0_g1_TRINITY_DN47185_c0_g1_i2_g.24943_m.24943|sp|03|Allele_1
+cd /data/project_data/16s/otu_table
 
-#now let's compute nucleotide diversity!! This takes a while so we'll do it in "screen"
+ll
 
-[rtyler1@pbio381 reads2snps]$ screen (to do stuff in the background)
-[rtyler1@pbio381 reads2snps]$ ### ctrl A then D to dettach
-[rtyler1@pbio381 reads2snps]$ screen -r ###to reattach
-
-[rtyler1@pbio381 reads2snps]$/data/popgen/dNdSpiNpiS_1.0 -alignment_file=SSW_by24inds.txt.fas -ingroup=sp -out=~/dNdSpiNpiS_output
+biom summarize-table -i /data/project_data/16s/otu_table/otu_table_mc2_w_tax_no_pynast_failures.biom
 ```
+Num Samples: Make sure we have 176 samples. We should have exactly the same amount as we do samples
+**Counts/sample summary: min, max, avg. We should write these down and remember them
+Number of observations: OTUs that were picked. We should write this down so when we filter we can compare 
+Counts/sample details: We don't want these to be super low. 10,000 or more should be ok.
 
-While we wait for that, let's look at the summary from Steve's previous smaller VCF file run on just one sample per indiv. Here's that output: 
-
-
-
-
-#                              Biological Summary                              #
-################################################################################
-
-Selected ingroup species: sp
-
-Number of analyzed individual: 24 (from 1 population(s))
-
-Total number of contig used for sequence analysis: 1113
-
-Total number of SNPs: 5040
-
-  - Biallelic: 4991
-  - Triallelic: 49
-  - Quadriallelic: 0
-
-Fit: ##related to fst but takes into account any inbreeding that may have been happening in the data. high values mean more homozygosity than you would expect under random mating. Vary from -1 to 1
-
-Average Fit: -0.0507419 [-0.06817; -0.031933] ## these look to be randomly mating and not inbreeding becasue of the negative numbers
-(Fit calculated in 902 contigs)
-
-Weir & Cockerham Fit (Evolution 1984):
-
-Average Weir & Cockerham Fit: 0.00703754 [-0.017669; 0.032047]
-(Fit calculated in 902 contigs)
-
-piN/piS ratio: nucleotide diversity
-
-Average piS in focal species: 0.00585312 [0.005172; 0.006598] ##mean of synonymous sites, then conf interval
-Average piN in focal species: 0.00154546 [0.00133; 0.001782] ##mean of nonsynon sites - purifying selection is happening
-Average piN / average piS: 0.264041 [0.223914; 0.310575] ##index (ratio...bw 0 and 1) of how effective selection is at clearing out deleterious mutations (purifying selection). the higher the ratio, more deleterious mtuations are occuring and selection isn't as effective at eliminating non-synon mutations that are deleterious. We will see a high ratio in small pops that are not diverse. high in long lived vertebrates but low in huge pop sizes like bacteria and invertebrates etc
-(piS and piN calculated in 902 contigs of average length 50)
-
-***so let's compare this info to the Romiguier data to see how these sea stars fall!!***
+downloading phyloseq
 
 ```{r}
-# Set your working directory to where you downloaded your file:
-setwd("~/Documents/Ecological_Genomics_PBIO381")
-
-# List the files in this directory
-list.files()
-
-# Read in the Romiguier data:
-Rom <- read.csv("Romiguier_nature13685-s3.csv", header=T)
-
-# Import OK?
-str(Rom) 
-head(Rom)
-
-# Looks good!
-# Now let's look at how the strength of purifying selection (piN/piS) compares to the size of Ne (piS). We'll plot these on a log scale to linearize the relationship.
-plot(log(Rom$piS), log(Rom$piNpiS), pch=21, bg="blue", xlab="log Synonymous Nucleotide Diversity (piS)", ylab="log Ratio of Nonysn to Syn Diversity (piN/piS)", main="Purifying Selection vs. Effective Population Size")
-
-# Now let's add our SSW points to the existing plot and give them a different symbol
-points(log(0.00585312), log(0.264041), pch=24, cex=1.5, bg="red") 
-
-# We can also add a regression line to the plot to see how far off the SSW estimates are from expectation
-reg <- lm(log(Rom$piNpiS) ~ log(Rom$piS)) # Fits a linear regression
-abline(reg) # adds the regression line to the plot
-
-# It would be useful to highlight the other echinoderms in the dataset...do our seastars behave similarly?
-echino <- Rom[which(Rom$Phylum=="Echinodermata"),] # subsets the data
-points(log(echino$piS), log(echino$piNpiS), pch=21, bg="red") # adds the points
-
-# Lastly, let's add a legend:
-legend("bottomleft", cex=1, legend=c("Metazoans", "Echinoderms", "P. ochraceus"), pch=c(21,21,24), col=c("blue", "red", "red"))
-
-# Pisaster seems to be in a group with other echinoderms that have relaxed purifying selection (high piN/piS), given their Ne...Interesting! Can we hypothesize why this might be?
-
-echino #compare ours to the other echinos
-
-#now let's estimate effective population size based on previous literature and our data: 
-#this assumes that generation time is the same as the generation time used for the previous lit
-.00585/(4*4*(10^-9))
+source('http://bioconductor.org/biocLite.R')
+biocLite('phyloseq')
+packageVersion('phyloseq')
 ```
+
+
+
+
 
 
 
