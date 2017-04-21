@@ -1,0 +1,79 @@
+---
+title: "EcoGeno 4/19/17 Rarefaction info update"
+author: "R Kirsten Tyler"
+date: "4/19/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*Rarefaction and Rarifying*
+
+Rarifying microbiome data is unacceptable
+
+Rarifying = normalizing data
+Rarefaction = estimating spp richness from raw counts, not normalizing
+
+for a given amt of sample effort, are you finding what's really there? 
+are the rare things that you find real? 
+
+methods advised against:
+
+Proportions (individual OTUs found over total number of OTUs)
+ problems:
+ - high rate of false positives
+ - heteroschedacity: the variance of Y is going to be differential (funnel shape on x vs y graph)
+ - which reduces power
+ 
+Rarifying Reads
+ steps:
+  1. smallest N (Nlmin) = minimum read count among your samples
+  2. discard libraries with fewer than Nlmin
+  3. sub-sample reads larger than Ns without replacement
+ what this does: 
+  - normalizing data
+  - removing # of reads
+ problems: 
+  - high rate of false positives
+  - requires emission of actual data
+  - reduces statistical power
+
+*Mixture Model*: stat dist that's made up of more than one dist on its own
+**the recommended method!**
+ what this does: 
+  - not decreasing power
+  - increasing accuracy over other methods
+  - combining two distributions: 
+    - binomial with a o-inflated gaussian
+    - accounts for biological variability 
+ packages you can use:
+  - edgeR
+  - DESeq
+  - phyloseq
+  
+embrace the uncertainty where it exists
+instead of taking out reads and bringing your N down, take into account all samples (with different N's)
+
+
+
+
+
+
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+

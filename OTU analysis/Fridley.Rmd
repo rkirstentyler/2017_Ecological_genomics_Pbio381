@@ -1,0 +1,23 @@
+---
+title: "Fridley"
+author: "R Kirsten Tyler"
+date: "4/12/2017"
+output: html_document
+---
+
+```{r}
+Fridley_sppdata <- read.csv("~/Documents/Dissertation/Fridley_data_summary_table_forpub3.csv")
+head(Fridley_sppdata)
+
+F_base<-ggplot(Fridley_sppdata, aes(Faith.s.PD,Percent.invasive)) + geom_point()
+F_base1<-ggplot(Fridley_sppdata, aes(Faith.s.PD,Invasive.taxa.in.EUS)) + geom_point()
+F_base
+F_base1
+
+F_base + geom_smooth()
+F_base + + geom_smooth(method=lm)
+
+#Faith's PD, Region Name, Percent invasive, 
+
+```
+

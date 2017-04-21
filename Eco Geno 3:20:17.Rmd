@@ -1,0 +1,146 @@
+---
+title: "EcoGeno 4/10/17"
+author: "R Kirsten Tyler"
+date: "4/10/2017"
+output: html_document
+---
+##Analyzing 16s AmipliconSeq Data##
+
+From tutorial: For these analyses, we will be using QIIME and phyloseq (an R package). QIIME will be used to make and filter the OTU table and phyloseq will be used to visualize the data and test hypotheses. There are many, many programs to analyze 16s data, these are only a few options!
+
+16s is the gene marker most widely used in bacterial studies because everyone uses it and we can compare to other studies. It's conserved enough so that every individual in a spp will have the same gene. 
+
+making a directory to store files related to this section of the class
+
+```{}
+mkdir 16s_analysis
+cd 16s_analysis
+```
+
+OTU: Operational Taxanomic Unit. OTUs are clusters of microorganisms grouped by sequence similarity of a specific taxonomic marker gene, in this case the 16s gene.
+
+We'll use an OTU Table!
+
+Take a look at the data:
+```{}
+head /data/project_data/16s/map.txt
+```
+
+SampleID	BarcodeSequence	LinkerPrimerSequence	Day	individual	Phenotype	Pheno_num	Final_phenotype	Trajectory	Tide	Description							
+01-5-05			0	1	Sick	1	Sick	SS	intertidal	1-5/5							
+01-5-08			3	1	Sick 	3	Sick	SS	intertidal	1-5/8							
+01-5-11			6	1	Dead	5	Sick	SS	intertidal	1-5/11							
+02-5-05			0	2	Sick	1	Sick	SS	intertidal	2-5/5							
+02-5-08			3	2	Sick	2	Sick	SS	intertidal	2-5/8							
+02-5-11			6	2	Sick	2	Sick	SS	intertidal	2-5/11							
+02-5-14			9	2	Sick	2	Sick	SS	intertidal	2-5/14							
+02-5-17			12	2	Sick	2	Sick	SS	intertidal	2-5/17							
+02-5-20			15	2	Dead	5	Sick	SS	intertidal	2-5/20		
+
+
+Barcode sequence = day 
+Phenotype = if sample was sick or healthy at the time she took the sample
+Number = how sick it was. 0 = healthy, 1,2,3,4 = varying degrees of sick, 5 = dead
+Final phenotype = if sample was sick or healthy during 
+
+Validate mapping file: does QIIME like the file? Does the file pass quality tests?
+
+```{}
+validate_mapping_file.py -m /data/project_data/16s/map.txt -o validate_map -p -b
+```
+
+This generated a file which can be downloaded onto my computer with cyberduck. We did that and checked out the file. Looks like there is some missing data but everything is all set to run the rest of our analysis
+
+Now, pairing paired end reads and quality filtering: 
+```{r}
+multiple_join_paired_ends.py -i /data/project_data/16s/data_files -o ~/16s_analysis/joined --read1_indicator _R1 --read2_indicator _R2
+```
+
+Now, naming the files differently so that QIIME will like them:
+
+```{}
+cd ~/16s_analysis/joined
+bash /data/project_data/16s/remove-underscore.sh
+bash /data/project_data/16s/remove-R1.sh
+```
+
+OK. 
+
+Now let's quality filter and demultiplex our files (takes 10 min)
+
+```{}
+multiple_split_libraries_fastq.py -i ~/16s_analysis/joined -o ~/16s_analysis/filtered -m sampleid_by_file --include_input_dir_path --remove_filepath_in_name  --mapping_indicator /data/project_data/16s/map.txt
+```
+
+go into the folder to see our data and make sure it looks ok. head the file to make sure you see the correct SampleIDs.
+```{}
+cd ~/16s_analysis/filtered
+
+head seqs.fna
+
+```
+
+>02-5-05_0 M02780:138:000000000-ATTB1:1:1101:21367:1238 1:N:0:GTAGCGGA+CGTCTAAT orig_bc=AAAAAAAAAAAA new_bc=AAAAAAAAAAAA bc_diffs=0
+CCTACGGGCGGCTGCAGTGGGGAATCTTGCACAATGGAGGAAACTCTGATGCAGCCATGCCGCGTGTATGAAGAAGGCCTTCGGGTTGTAAAGTACTTTCAGTGAGGAGGAATGGTTAGTAGTTAATAATTGCTTGCTGTGACGTTACTCGCAGAAGAAGGACCGGCTAACTCCGTGCCAGCAGCCGCGGTAATACGGAGGGTGCGAGCGTTGATCGGAATTATTGGGCGTAAAGGGTACGCAGGCGGTTTGTTAAGCGAGATGTGAAAGCCCAGAGCTCAACTTGGGGACTGCATTTTAA
+
+check to make sure our analysis is ok by calling the "test" command, then remove the folder bc we don't need it
+
+```{r}
+extract_seqs_by_sample_id.py -i seqs.fna -o test -s 04-5-05
+
+rm test
+```
+
+Clustering OTUs and building the OTU table (this takes like 4 days)
+---see tutorial online for detailed description of what this does. I don't have time to write it all down here.
+```{}
+cd ~/16s_analysis
+
+pick_open_reference_otus.py -i ~/16s_analysis/filtered/seqs.fna -o ~/16s_analysis/otus  --parallel --jobs_to_start 16
+```
+
+Now to look at it
+
+```{}
+cd /data/project_data/16s/otu_table
+
+ll
+
+biom summarize-table -i /data/project_data/16s/otu_table/otu_table_mc2_w_tax_no_pynast_failures.biom
+```
+Num Samples: Make sure we have 176 samples. We should have exactly the same amount as we do samples
+**Counts/sample summary: min, max, avg. We should write these down and remember them
+Number of observations: OTUs that were picked. We should write this down so when we filter we can compare 
+Counts/sample details: We don't want these to be super low. 10,000 or more should be ok.
+
+downloading phyloseq
+
+```{r}
+source('http://bioconductor.org/biocLite.R')
+biocLite('phyloseq')
+packageVersion('phyloseq')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

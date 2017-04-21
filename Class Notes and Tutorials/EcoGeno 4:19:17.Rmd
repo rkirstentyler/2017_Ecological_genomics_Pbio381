@@ -1,0 +1,110 @@
+---
+title: "EcoGeno 4/19/17 Picrust"
+author: "R Kirsten Tyler"
+date: "4/19/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Picrust!**
+Uses extended ancestral-state reconstruction algorithm to ID a closely related microbe that has been sequenced (its full genome has been sequenced) to find function of microbes
+
+Picrust gives you a closed-reference (the most well-understood OTUs...the OTUs that are known) OTU table with KEGG orthology terms
+
+In terminal:
+```{}
+filter_otus_from_otu_table.py -i ~/16s_analysis/otu_table_mc2_w_tax_no_pynast_failures_no_chimeras_frequency_filtered.biom -o ~/16s_analysis/closed_otu_table.biom --negate_ids_to_exclude -e /usr/lib/python2.7/site-packages/qiime_default_reference/gg_13_8_otus/rep_set/97_otus.fasta 
+
+```
+
+Any word in front of the OTU name means it's not a 'referenced' OTU
+
+```{}
+#How many closed ref OTUs?
+
+biom summarize-table -i closed_otu_table.biom
+
+#normalize by picrust’s method
+
+normalize_by_copy_number.py -i ~/16s_analysis/closed_otu_table.biom -o ~/16s_analysis/closed_otu_table_norm.biom
+
+```
+
+Now we'll predict metagenomes. We'll get both a biom file and a text file to view
+
+```{}
+
+#for text file:
+predict_metagenomes.py -f -i ~/16s_analysis/closed_otu_table_norm.biom -o ~/16s_analysis/metagenome_predictions.txt -a nsti_per_sample.txt 
+
+#for biom output file: 
+predict_metagenomes.py -i ~/16s_analysis/closed_otu_table_norm.biom -o ~/16s_analysis/metagenome_predictions.biom -a nsti_per_sample.txt
+
+```
+
+KO terms are representative of all taxa in database that share a common ancestor with your OTU
+
+```{}
+#Collapsing to higher KO hierarchy terms to look at "pathways of functionality"
+
+text file: 
+categorize_by_function.py -f -i metagenome_predictions.biom -c KEGG_Pathways -l 3 -o metagenome_predictions.L3.txt
+
+biom file:
+categorize_by_function.py -i metagenome_predictions.biom -c KEGG_Pathways -l 3 -o metagenome_predictions.L3.biom
+
+```
+
+Now let's analyze in R:
+
+```{r}
+library("phyloseq"); packageVersion("phyloseq")
+library("DESeq2")
+packageVersion("DESeq2")
+library("ggplot2")
+theme_set(theme_bw())
+install.packages("RJSONIO")
+install.packages("~/Documents/2017_Ecological_genomics_Pbio381/biom_0.3.12.tar", repos = NULL, type = "source")
+library("biom")
+```
+
+
+```{}
+
+x = read_biom("metagenome_predictions.L3.biom")
+otumat = as(biom_data(x), "matrix")
+OTU = otu_table(otumat, taxa_are_rows=TRUE)
+
+
+mapping <- import_qiime_sample_data(mapfilename = 'R_map.txt')
+
+phylo <- merge_phyloseq(OTU, mapping)
+phylo
+
+###############################################################################
+###Test for DE KO terms between individuals that got sick and those that didn't
+###############################################################################
+
+final_pheno = phyloseq_to_deseq2(phylo, ~ Final_phenotype)
+final_pheno_results = DESeq(final_pheno, test="Wald")
+final_pheno_res = results(final_pheno_results)
+summary(final_pheno_res)
+head(final_pheno_res)
+
+##build the table and output it to my computer:
+
+alpha = 0.05
+final_pheno_sigtab = final_pheno_res[which(final_pheno_res$padj < alpha), ]
+final_pheno_sigtab= cbind(as(final_pheno_sigtab, "data.frame"), as(tax_table(phylo)[rownames(final_pheno_sigtab), ], "matrix"))
+head(final_pheno_sigtab)
+final_pheno_sigtab
+write.table(final_pheno_sigtab, "Final_pheno_L3.txt", sep="\t")
+```
+
+
+
+
+
