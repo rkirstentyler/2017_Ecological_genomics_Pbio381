@@ -101,12 +101,11 @@ S_AlleleFreqs.frq                             100%  448KB 448.4KB/s   00:00
 **Let's look at the data in R**
 
 ```{r}
-setwd("~/Documents/Ecological_Genomics_PBIO381/Pop_Gen")
-
+setwd("~/Documents/2017_Ecological_genomics_Pbio381/Pop_Gen")
 list.files()
 
-H_freq <- read.table("H_AlleleFreqs.frq", header = T)
-S_freq <- read.table("S_AlleleFreqs.frq", header = T)
+H_freq <- read.table("~/Documents/2017_Ecological_genomics_Pbio381/Pop_Gen/H_AlleleFreqs.frq", header = T)
+S_freq <- read.table("~/Documents/2017_Ecological_genomics_Pbio381/Pop_Gen/S_AlleleFreqs.frq", header = T)
 
 str(H_freq)
 
@@ -117,7 +116,7 @@ head(All_freq)
 All_freq$diff <- (All_freq$H_ALT - All_freq$S_ALT)
 hist(All_freq$diff, breaks=50, col="red", main = "Allele frequency difference (H-S)")
 
-fst <- read.table("HvS_Fst.weir.fst", header=T)
+fst <- read.table("~/Documents/2017_Ecological_genomics_Pbio381/Pop_Gen/HvS_Fst.weir.fst", header=T)
 All_freq.fst <- merge(All_freq, fst, by=c("CHROM", "POS"))
 
 plot(All_freq.fst$diff, All_freq.fst$WEIR_AND_COCKERHAM_FST, xlab="Allele frequency difference (H-S)", ylab="Fst", main="Healthy vs. Sick SNP divergence")

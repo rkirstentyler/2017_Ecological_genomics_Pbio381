@@ -2,7 +2,7 @@
 title: "Population Genomics 4: Population Structure with PCA"
 output: html_notebook
 ---
-
+```{r}
 # Set your working directory to where you downloaded your results files:
 setwd("~/github/PBIO381_srkeller_labnotebook/data/SNP_data/")
 
@@ -22,7 +22,7 @@ vcf1 <- read.vcfR("SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf")
 # The adegenet package uses a highly efficient way of storing large SNP datasets in R called a "genlight" object. The following function creates a genlight object from your vcf:
 gl1 <- vcfR2genlight(vcf1)
 print(gl1) # Looks good! Right # of SNPs and individuals!
-
+
 # For info, try:
 gl1$ind.names
 gl1$loc.names[1:10]
@@ -59,7 +59,7 @@ legend("topleft",
        legend=unique(gl1$pop), 
        pch=20, 
        col=c("black", "red"))
-
+
 # Perhaps we want to show disease status instead of locality:
 plot(pca1$scores[,1], pca1$scores[,2], 
      cex=2, pch=20, col=as.factor(gl1$other$Trajectory), 
@@ -70,10 +70,50 @@ legend("topleft",
        legend=unique(gl1$other$Trajectory), 
        pch=20, 
        col=as.factor(unique(gl1$other$Trajectory)))
-
+
 # Which SNPs load most strongly on the 1st PC axis?
 loadingplot(abs(pca1$loadings[,1]),
             threshold=quantile(abs(pca1$loadings), 0.999))
-
+
 # Get their locus names
 gl1$loc.names[which(abs(pca1$loadings)>quantile(abs(pca1$loadings), 0.999))]
+```
+
+If you have a-priori defined groups, another way to analyze SNP-PCA information is with a discriminant analysis. This is known as **Discriminant Analysis of Principal Components (DAPC)**, and is a very useful means of finding the SNPs that most differentiate your samples for a variable of interest.
+
+```{r}
+ 
+# Run the DAPC using disease status to group samples
+disease.dapc <- dapc(gl1, pop=gl1$other$Trajectory, n.pca=8, n.da=3,
+     var.loadings=T, pca.info=T, parallel=F)
+
+# Scatterplot of results
+scatter.dapc(disease.dapc, grp=gl1$other$Trajectory, legend=T)
+
+# Plot the posterior assignment probabilities to each group
+compoplot(disease.dapc)
+
+# Which loci contribute the most to distinguishing Healthy vs. Sick individuals?
+loadingplot(abs(disease.dapc$var.load), 
+            lab.jitter=1, 
+            threshold=quantile(abs(disease.dapc$var.load), probs=0.999))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

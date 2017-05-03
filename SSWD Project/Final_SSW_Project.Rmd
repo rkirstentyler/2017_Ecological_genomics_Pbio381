@@ -1,0 +1,304 @@
+---
+title: "Final Project"
+author: "R Kirsten Tyler"
+date: "4/24/2017"
+output: html_document
+---
+
+Final Project Analysis
+
+- compare SNPs of phenotypes S), within locations, then between locations.
+
+First, cleaning data to analyze interesting parts. Let's look at the dataset:
+Using raw data, use vcf tools to cut the indivs that i don't want before applying filters
+Individual      Trajectory      Location        SNPs
+10      HH      INT     N
+24      HH      INT     Y
+27      HH      INT     Y
+08      HS      INT     Y
+09      HS      INT     Y
+15      HS      INT     Y
+19      HS      INT     Y
+20      HS      INT     Y
+03      SS      INT     Y
+07      SS      INT     Y
+14      SS      INT     Y
+22      SS      INT     Y
+23      SS      INT     Y
+26      SS      INT     Y
+28      SS      INT     Y
+29      SS      INT     Y
+31      HH      SUB     Y
+32      HH      SUB     Y
+33      HH      SUB     Y
+34      HH      SUB     N
+35      HH      SUB     Y
+36      SS      SUB     Y
+37      MM      SUB     Y
+38      MM      SUB     Y
+```{}
+#removing MMs
+[rtyler1@pbio381 reads2snps]$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --remove-indv 37 --remove-indv 38 --recode --out ~/SSW_noMM.txt.vcf 
+[rtyler1@pbio381 ~]$ gzip SSW_noMM.txt.vcf.recode.vcf #rezip
+
+#removing subtidal indivs
+[rtyler1@pbio381 reads2snps]$ vcftools --gzvcf SSW_noMM.txt.vcf.recode.vcf.gz --remove-indv 31 --remove-indv 32 --remove-indv 33 --remove-indv 34 --remove-indv 35 --remove-indv 36 --recode --out ~/SSW_Int.txt.vcf
+[rtyler1@pbio381 ~]$ gzip SSW_Int.txt.vcf.recode.vcf #rezip
+```
+
+Filtering file with both intertidal and subtidal:
+```{}
+[rtyler1@pbio381 ~]$ vcftools --gzvcf SSW_noMM.txt.vcf.recode.vcf.gz --min-alleles 2 --max-alleles 2 --maf 0.02 --max-missing 0.8 --recode --out ~/SSW_allbi_maf.02_miss.8
+```
+VCFtools - 0.1.14
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--gzvcf SSW_noMM.txt.vcf.recode.vcf.gz
+	--maf 0.02
+	--max-alleles 2
+	--min-alleles 2
+	--max-missing 0.8
+	--out /users/r/t/rtyler1/SSW_allbi_maf.02_miss.8
+	--recode
+
+Using zlib version: 1.2.7
+After filtering, kept 22 out of 22 Individuals
+Outputting VCF file...
+After filtering, kept 8429 out of a possible 7486938 Sites
+Run Time = 19.00 seconds
+
+
+Filtering for Intertidal only:
+```{}
+[rtyler1@pbio381 ~]$ vcftools --gzvcf SSW_Int.txt.vcf.recode.vcf.gz --min-alleles 2 --max-alleles 2 --maf 0.02 --max-missing 0.8 --recode --out ~/SSW_int_allbi_maf.02_miss.8
+```
+VCFtools - 0.1.14
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--gzvcf SSW_Int.txt.vcf.recode.vcf.gz
+	--maf 0.02
+	--max-alleles 2
+	--min-alleles 2
+	--max-missing 0.8
+	--out /users/r/t/rtyler1/SSW_int_allbi_maf.02_miss.8
+	--recode
+
+Using zlib version: 1.2.7
+After filtering, kept 16 out of 16 Individuals
+Outputting VCF file...
+After filtering, kept 5827 out of a possible 7486938 Sites
+Run Time = 19.00 seconds
+
+
+Download to mac with the DUCK
+
+Load data for both intertidal and intertidal/subtidal subsets
+```{r}
+# Set your working directory to where you downloaded your results files:
+setwd("~/Documents/2017_Ecological_genomics_Pbio381/SSWD Project")
+
+#loading libraries
+library(vcfR)
+library(adegenet)
+
+#Read the vcf SNP data into R
+Int_vcf <- read.vcfR("~/Documents/2017_Ecological_genomics_Pbio381/SSWD Project/SSW_int_allbi_maf.02_miss.8.recode.vcf")
+all_vcf <- read.vcfR("~/Documents/2017_Ecological_genomics_Pbio381/SSWD Project/SSW_nomm_allbi_maf.02_miss.8.recode.vcf.gz")
+
+# The adegenet package uses a highly efficient way of storing large SNP datasets in R called a "genlight" object. The following function creates a genlight object from your vcf:
+Int_gl <- vcfR2genlight(Int_vcf)
+print(Int_gl) # Looks good! Right # of SNPs and individuals!
+
+all_gl <- vcfR2genlight(all_vcf)
+print(all_gl) # Looks good! Right # of SNPs and individuals!
+
+# Int_gl Info:
+Int_gl$ind.names
+Int_gl$loc.names[1:10]
+Int_gl$chromosome[1:3]
+
+# Reading in and organizing metadata to match the vcf files
+#ssw_meta <- read.table("ssw_healthloc.txt", header=T) ## didn't do this. instead i manually removed MM indivs in textwrangler. 
+ssw_meta <- read.table("ssw_healthloc_noMM.txt", header=T) # read in the metadata without MM indivs
+ssw_meta_Int <- subset(ssw_meta, ssw_meta$Location != "SUB") #removing SUB indivs
+
+ssw_meta <- ssw_meta[order(ssw_meta$Individual),] # sort by Individual ID, just like the VCF file
+ssw_meta_Int <- ssw_meta_Int[order(ssw_meta_Int$Individual),] # sort by Individual ID, just like the VCF file
+
+# Confirm the ID's are ordered the same in Int_gl1 and ssw_meta: 
+Int_gl$ind.names
+ssw_meta_Int$Individual
+
+all_gl$ind.names
+ssw_meta$Individual
+
+Int_gl$pop <- ssw_meta_Int$Location # assign locality info
+Int_gl$other <- as.list(ssw_meta_Int) # assign disease status
+
+all_gl$pop <- ssw_meta$Location # assign locality info
+all_gl$other <- as.list(ssw_meta) # assign disease status
+
+# Exploring the structure of our SNP data using the glPlot function, which gives us a sample x SNP view of the VCF file
+glPlot(Int_gl, posi="bottomleft")
+glPlot(all_gl, posi="bottomleft")
+```
+
+Running DAPC analysis:
+
+- - i want to take MM out of the analysis altogether (only compare HH vs HS/SS): use the remove filter in vcftools in terminal
+- - then, run DAPC on subgroups: HH vs HS/SS in intertidal, then run DAPC on HH vs HS/SS in both locations
+
+From the DAPC paper: "DA maximizes the separation between groups (plain arrow) while minimizing variation within group. As a result, PCA fails to discriminate the groups, while DA adequately displays group differences."
+"DAPC relies on data transformation using PCA as a prior step to DA, which ensures that variables submitted to DA are perfectly uncorrelated, and that their number is less than that of analysed individuals"
+"the contributions of alleles to the structures identified by DAPC can allow for identifying regions of the genome driving genetic divergence among groups"
+"To measure the extent to which groups possess different values of y, we use the ratio of between-group and within-group variances, also known as the F statistic"
+"This quantity takes positive values only, with larger values indicating stronger differences between groups. Alternatively, one could use the proportion of variance explained by the model, which is also known as the correlation ratio of y"
+"In fact, both quantities can be used as a measure of group separation in DA and DAPC, and would yield identical results (discriminant functions) up to a constant. In the remaining, we shall refer to the F statistic only."
+"(v = [v1...v p ] T being a vector of p alleles loadings, known as 'discriminant coefficients'), showing as well as possible the separation between groups as measured by the F statistic (Equation 3). That is, the aim of DA is to choose v so that F(Xv) is maximum.
+
+Linear combinations of alleles (Equation 5) optimizing this criterion are called principal components, which in the case of the discriminant analysis are also called discriminant functions. Discriminant functions are found by the eigenanalysis of the D-symmetric matrix [51]:"
+
+
+#############################################################################################
+
+**COMPARING ALLELES IN INTERTIDAL**
+```{r}
+# Run the DAPC using disease status to group samples HH, HS, SS in intertidal
+intertidal.dapc <- dapc(Int_gl, pop=Int_gl$other$Trajectory, n.pca=8, n.da=2,
+     var.loadings=T, pca.info=T, parallel=F)
+
+intertidal.dapc$pca.eig #amt of variation ecxplained by each PC band. we see that 97% of the variation is explained in 14 bands. we'd like to see all the variation explained so we will use all 15 bands.
+totaleig <- sum(intertidal.dapc$pca.eig)
+first8eig <- sum(16.061225, 14.986533, 14.719689, 14.539856, 14.465510, 13.910824, 13.490920, 13.197774)
+first10eig <- sum(16.061225, 14.986533, 14.719689, 14.539856, 14.465510, 13.910824, 13.490920, 13.197774, 12.867169, 12.351743)
+first14eig <- sum(16.061225, 14.986533, 14.719689, 14.539856, 14.465510, 13.910824, 13.490920, 13.197774, 12.867169, 12.351743, 11.680651, 10.171100,  9.744095, 9.249656)
+varexpl <- first8eig / totaleig #variation explained by first 8 PC bands
+var10 <- first10eig / totaleig #variation explained by first 10 PC bands
+var14 <- first14eig / totaleig #variation explained by first 14 PC bands
+
+intertidal.dapc$eig #eigenvalues for intertidal.dapc
+Int_gl$other$Trajectory #levels in DAPC: 1. HH, 2. HS, 3. SS
+intertidal.dapc$var.contr
+
+# Scatterplot of results
+scatter.dapc(intertidal.dapc, grp=Int_gl$other$Trajectory, legend=T) #DA eigenvalues
+
+# Plot the posterior assignment probabilities to each group
+compoplot(intertidal.dapc)
+
+# Which loci contribute the most to distinguishing Healthy vs. Sick individuals?
+loadingplot(abs(intertidal.dapc$var.load), 
+            lab.jitter=1, 
+            threshold=quantile(abs(intertidal.dapc$var.load), probs=0.999))#threshold takes the top 0.1% of loci loading onto the DAPC that separates HH HS SS. This has the advantage of allowing one to quantify the contribution of a given allele to a particular structure.
+
+# Subsetting data to pull out genes and SNP positions then subsetting to var.load >0.02 (loci that contribute the most to distinguishing H vs S indivs in intertidal pop)
+sum(abs(intertidal.dapc$var.load) > 0.02) #to figure out how many SNPS i should have in new dataset
+x<-data.frame(cbind(locname=names(intertidal.dapc$pca.cent),abs(intertidal.dapc$var.load[,1]))) #dataframe with dapc names and loadings
+x[,2] <- as.numeric(as.character(x[,2])) #changing the second column (loadings) from factor to number
+p_snps_int<- droplevels(subset(x, x[,2]>0.02)) #creating dataset of subsetted x based on criteria of >0.02 var.load
+dim(p_snps_int) #making sure we have 11 SNPs 
+
+posdat<-data.frame(locname=Int_gl$loc.names,position=Int_gl$position) #pulling names from original dataset
+Int_SNPS<-posdat[posdat$locname %in% p_snps_int$locname,] #matching names in p_snps_int 
+
+Int_SNPS
+names(posdat)
+write.table(Int_SNPS$locname, "Int_SNPS.txt", quote = FALSE, row.names = FALSE)
+```
+
+Now, creating an Fst table of only the intertidal individuals
+```{}
+# In terminal:
+[rtyler1@pbio381 ~]$ vcftools --vcf ~/SSW_int_allbi_maf.02_miss.8.recode.vcf --weir-fst-pop ~/ssw_healthloc_HH.txt --weir-fst-pop ~/ssw_healthloc_HSSS.txt --out HvS_int_fst
+```
+
+```{r}
+Int_fst <- read.table("HvS_int_fst.weir.fst",header=T)
+str(Int_fst)
+Int_fst # the fst analysis is being discarded because the analysis is dropping so many SNPs. we went from 5000 to 1000 after performing fst. that's not working for me because most of the SNPs found as significantly different between healthy and sick are not found in the fst table.  
+```
+
+Check these genes in the annotation table
+```{}
+#making annotation table with only the 11 significantly different SNPs found in intertidal DAPC analysis
+
+[rtyler1@pbio381 ~]$ grep -f Int_SNPS.txt /data/project_data/enrichment/poch_uniprot_GO_nr.txt > DAPC_annot_0.1pct.txt
+[rtyler1@pbio381 ~]$ head -n1 /data/project_data/enrichment/poch_uniprot_GO_nr.txt > DAPC_annot_0.1pct.txt 
+[rtyler1@pbio381 ~]$ vim DAPC_annot_0.1pct.txt 
+[rtyler1@pbio381 ~]$ grep -f Int_SNPS.txt /data/project_data/enrichment/poch_uniprot_GO_nr.txt > DAPC_anno_0.1pct.txt
+[rtyler1@pbio381 ~]$ paste DAPC_annot_0.1pct.txt DAPC_anno_0.1pct.txt > DAPC_results_0.1pct.txt
+[rtyler1@pbio381 ~]$ vim DAPC_results_0.1pct.txt 
+
+#downloaded with the duck
+```
+
+
+
+#next: to see if this trend was not just related to this pop, take another ochraceus pop and perform the same analysis. do the same genes pop up in H and S? if so, perhaps they are related to (or linked to genes that are related to) pathogen resistance or susceptibility
+
+```
+
+**COMPARING ALLELES IN SUBTIDAL AND INTERTIDAL**
+```{r}
+# Run DAPC to group samples HH v HS/S in both locations
+all.dapc <- dapc(all_gl, pop=all_gl$other$Trajectory, n.pca=8, n.da=2,
+     var.loadings=T, pca.info=T, parallel=F)
+
+# Scatterplot of results
+scatter.dapc(all.dapc, grp=all_gl$other$Trajectory, legend=T)
+
+# Plot the posterior assignment probabilities to each group
+compoplot(all.dapc)
+
+# Which loci contribute the most to distinguishing H vs S in both locations?
+loadingplot(abs(all.dapc$var.load), 
+            lab.jitter=1, 
+            threshold=quantile(abs(all.dapc$var.load), probs=0.99))
+
+# Subsetting data to pull out genes and SNP positions then subsetting to var.load >0.02 (loci that contribute the most to distinguishing H vs S indivs) 
+
+sum(abs(all.dapc$var.load) > quantile(abs(all.dapc$var.load), probs=0.99)) #to figure out how many SNPS i should have in new dataset
+x1<-data.frame(cbind(locname=names(all.dapc$pca.cent),abs(all.dapc$var.load[,1]))) #dataframe with dapc names and loadings
+x1[,2] <- as.numeric(as.character(x1[,2])) #changing the second column (loadings) from factor to number
+pred_snps_all<- subset(x, x[,2] > quantile(abs(all.dapc$var.load), probs=0.99)) #creating dataset of subsetted x based on criteria of >0.02 var.load
+dim(pred_snps_all)  
+
+posdat<-data.frame(locname=all_gl$loc.names,position=all_gl$position) #pulling names from original dataset
+All_SNPS<-posdat[posdat$locname %in% pred_snps_all$locname,] #matching names in Pred_SNPs
+All_SNPS
+dim(All_SNPS)
+```
+
+Comparing the SNPs found in Int vs in All
+```{r}
+overlap <- as.data.frame(All_SNPS$locname %in% Int_SNPS$locname)
+overlap #there is zero overlap when looking at intertidal loading vs all loadings. we could say that the dapc analysis on the whole dataset could be confounding the differences between location with health status so we aren't really seeing the differences between healthy sick. we are seeing mostly differences between location. For this reason, we are sticking to our intertidal study to control for location.
+```
+
+
+
+Final project notes from steve and melissa:
+
+30 min presentation: 20 minutes talk, 10 minute questions/discussion
+
+equal time for each person in group
+
+what's the library type that gives rise to 16s data
+how were the reads cleaned and assembled
+
+then for our analysis, more detailed. make clear the choices you made for your analysis. we chose to remove indivs or whatever
+
+results and discussion: make sure you talk about the biology of the results FIRST. then back it up with statistical evidence
+
+take home
+
+talk about what this could be ...in discussion..then follow it up withthe next potential study. next questions? manipulative experiment?
+
+
+
+
+
+
+

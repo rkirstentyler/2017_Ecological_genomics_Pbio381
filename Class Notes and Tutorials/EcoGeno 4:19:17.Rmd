@@ -65,16 +65,18 @@ library("phyloseq"); packageVersion("phyloseq")
 library("DESeq2")
 packageVersion("DESeq2")
 library("ggplot2")
-theme_set(theme_bw())
+
 install.packages("RJSONIO")
-install.packages("~/Documents/2017_Ecological_genomics_Pbio381/biom_0.3.12.tar", repos = NULL, type = "source")
+install.packages("~/Documents/2017_Ecological_genomics_Pbio381/OTU analysis/biom_0.3.12.tar", repos = NULL, type = "source")
 library("biom")
+
+
+
 ```
 
 
-```{}
-
-x = read_biom("metagenome_predictions.L3.biom")
+```{r}
+x = read.table("~/Documents/2017_Ecological_genomics_Pbio381/OTU analysis/metagenome_predictions.L3.biom", sep = "\t", header = TRUE)
 otumat = as(biom_data(x), "matrix")
 OTU = otu_table(otumat, taxa_are_rows=TRUE)
 

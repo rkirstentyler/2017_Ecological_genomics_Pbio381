@@ -151,7 +151,9 @@ Here, we are seeing some effects of how linkage can effect sites that are close 
 There are quite a few aspects we can look at regarding diversity (below taken from tutorial):
 
 Nucleotide diversity (pi): The average number of pairwise differences between all individuals in the population. This is equivalent to the expected heterozygosity (2pq) for a bi-allelic locus.
+
 Allele frequencies (p and q): What is the frequency of a given SNP? Usually defined in terms of the Major (common) and minor (rare) allele at each SNP locus.
+
 Site Frequency Spectrum (SFS): Also known as the "Allele Frequncy Spectrum". It is the histogram of allele frequencies across all SNP loci. In other words, how many loci are rare (say, frequency in the population between 0-0.1)? How many loci are common (0.4-0.5)? It turns out the shape of this distribution has an incredible amount of information in it…both about the population's demographic history (Ne, size changes) and also selection (purifying selection, positive selection)
 
 For now, we will look at allele frequencies
@@ -200,10 +202,22 @@ Now we need to cut off the column that we need and name it something else:
 [rtyler1@pbio381 ~]$ cut -f 1 S_OneSampPerInd.txt > S_OneSampPerInd2.txt
 ```
 
-Now we will run VCFtools to check allele frequencies: Recall that Wright's Fst measures allele frequency variance between groups, but standardizes the estimate based on the mean frequencies within groups. This gives a complimentary view to just comparing the raw frequencies.
+Now we will run VCFtools to check allele frequencies: 
+```{}
+#from tutorial online:
+[rtyler1@pbio381 ~]$ vcftools --vcf filename.vcf --freq2 --keep H_SampleIDs.txt --out H_AlleleFreqs
+[rtyler1@pbio381 ~]$ vcftools --vcf filename.vcf --freq2 --keep S_SampleIDs.txt --out S_AlleleFreqs
+
+#from in class work:
+[rtyler1@pbio381 ~]$ vcftools --gzvcf SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf.gz --freq2 --keep H_OneSampPerInd2.txt --out H_AlleleFreqs
+
+```
+Recall that Wright's Fst measures allele frequency variance between groups, but standardizes the estimate based on the mean frequencies within groups. This gives a complimentary view to just comparing the raw frequencies.
 
 ```{}
-[rtyler1@pbio381 ~]$ vcftools --gzvcf SSW_all_biallelic.MAF0.02.Miss0.8.recode.vcf.gz --freq2 --keep H_OneSampPerInd2.txt --out H_AlleleFreqs
+#Fst between Healthy and Sick individ (from tutorial online):
+vcftools --vcf ~/filename.vcf --weir-fst-pop ~/H_SampleIDs.txt --weir-fst-pop ~/S_SampleIDs.txt --out HvS_OneSampPerInd
 ```
+
 
 

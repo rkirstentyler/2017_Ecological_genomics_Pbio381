@@ -72,9 +72,11 @@ pheno_sigtab$Family = factor(as.character(pheno_sigtab$Family), levels=names(x))
 ggplot(pheno_sigtab, aes(x=Family, y=log2FoldChange, color=Phylum)) + geom_point(size=3) + 
   theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5))
 
+str(pheno_sigtab)
+
 ##plot counts across days for individual otus
 title <- "New.ReferenceOTU2814"
-data <- plotCounts(pheno_deseq_test, "New.ReferenceOTU2814" , 
+data <- plotCounts(pheno_deseq_test, "New.ReferenceOTU2814", 
                    intgroup=c("Day","Phenotype"), returnData=TRUE)
 ggplot(data, aes(x=Day, y=count, color=Phenotype, group=Phenotype)) + 
   geom_point() + stat_smooth(se=FALSE,method="loess") +  scale_y_log10() + ggtitle(title)
@@ -91,10 +93,6 @@ pheno_num <- phyloseq_to_deseq2(phylo, ~ individual + Pheno_num)
 
 ##Run DESeq. This command takes a bit of time
 pheno_num_deseq_test <- DESeq(pheno_num, test="Wald")
-
-##Get results from DESeq
-pheno_num_results <- results(pheno_num_deseq_test)
-head(pheno_num_results)
 
 ##Compare Healthy to S_1
 pheno_num_res_0_1<- results(pheno_num_deseq_test, contrast=c("Pheno_num","0","1"))
@@ -126,7 +124,7 @@ summary(pheno_num_res_0_4)
 ##Compare Healthy to S_5
 pheno_num_res_0_5<- results(pheno_num_deseq_test, contrast=c("Pheno_num","0","5"))
 head(pheno_num_res_0_5)
-summary(pheno_num_res)
+summary(pheno_num_res_0_5)
 
 ##Plot abundances of taxa in different pheno numbers
 ##First we must rarefy
