@@ -5,37 +5,41 @@ date: "4/24/2017"
 output: html_document
 ---
 
-#SSWD Final Project Analysis#
+***SSWD Final Project Analysis***
 
 - compare SNPs of phenotypes S), within locations, then between locations.
 
 First, cleaning data to analyze interesting parts. Let's look at the dataset:
 Using raw data, use vcf tools to cut the indivs that i don't want before applying filters
-Individual      Trajectory      Location        SNPs
-10      HH      INT     N
-24      HH      INT     Y
-27      HH      INT     Y
-08      HS      INT     Y
-09      HS      INT     Y
-15      HS      INT     Y
-19      HS      INT     Y
-20      HS      INT     Y
-03      SS      INT     Y
-07      SS      INT     Y
-14      SS      INT     Y
-22      SS      INT     Y
-23      SS      INT     Y
-26      SS      INT     Y
-28      SS      INT     Y
-29      SS      INT     Y
-31      HH      SUB     Y
-32      HH      SUB     Y
-33      HH      SUB     Y
-34      HH      SUB     N
-35      HH      SUB     Y
-36      SS      SUB     Y
-37      MM      SUB     Y
-38      MM      SUB     Y
+
+#RAW DATA#
+
+|Individual|Trajectory|Location|SNPs|
+|----------|----------|--------|----|
+|10        |HH        |INT     |N   |
+|24        |HH        |INT     |Y   |
+|27        |HH        |INT     |Y   |
+|08        |HS        |INT     |Y   |
+|09        |HS        |INT     |Y   |
+|15        |HS        |INT     |Y   |
+|19        |HS        |INT     |Y   |
+|20        |HS        |INT     |Y   |
+|03        |SS        |INT     |Y   |
+|07        |SS        |INT     |Y   |
+|14        |SS        |INT     |Y   |
+|22        |SS        |INT     |Y   |
+|23        |SS        |INT     |Y   |
+|26        |SS        |INT     |Y   |
+|28        |SS        |INT     |Y   |
+|29        |SS        |INT     |Y   |
+|31        |HH        |SUB     |Y   |
+|32        |HH        |SUB     |Y   |
+|33        |HH        |SUB     |Y   |
+|34        |HH        |SUB     |N   |
+|35        |HH        |SUB     |Y   |
+|36        |SS        |SUB     |Y   |
+|37        |MM        |SUB     |Y   |
+|38        |MM        |SUB     |Y   |
 ```{}
 #removing MMs
 [rtyler1@pbio381 reads2snps]$ vcftools --gzvcf SSW_by24inds.txt.vcf.gz --remove-indv 37 --remove-indv 38 --recode --out ~/SSW_noMM.txt.vcf 
