@@ -1,11 +1,11 @@
 ---
-title: "Final Project"
+title: "SSWD Final Project"
 author: "R Kirsten Tyler"
 date: "4/24/2017"
 output: html_document
 ---
 
-Final Project Analysis
+#SSWD Final Project Analysis#
 
 - compare SNPs of phenotypes S), within locations, then between locations.
 
@@ -145,7 +145,11 @@ glPlot(Int_gl, posi="bottomleft")
 glPlot(all_gl, posi="bottomleft")
 ```
 
-Running DAPC analysis:
+#Running DAPC analysis#
+
+####################################################################################
+
+Notes and quotes on DAPC: 
 
 - - i want to take MM out of the analysis altogether (only compare HH vs HS/SS): use the remove filter in vcftools in terminal
 - - then, run DAPC on subgroups: HH vs HS/SS in intertidal, then run DAPC on HH vs HS/SS in both locations
@@ -160,27 +164,37 @@ From the DAPC paper: "DA maximizes the separation between groups (plain arrow) w
 
 Linear combinations of alleles (Equation 5) optimizing this criterion are called principal components, which in the case of the discriminant analysis are also called discriminant functions. Discriminant functions are found by the eigenanalysis of the D-symmetric matrix [51]:"
 
+####################################################################################
 
-#############################################################################################
-
-**COMPARING ALLELES IN INTERTIDAL**
+**COMPARING ALLELES IN INTERTIDAL USING DAPC**
 ```{r}
 # Run the DAPC using disease status to group samples HH, HS, SS in intertidal
+
+
+#xval_int_dapc <- xvalDapc(Int_gl, grp=Int_gl$other$Trajectory, n.pca.max = 15,                  n.da = NULL, training.set = 0.9, result = c("groupMean", "overall"), center = FALSE, scale = FALSE, n.pca=NULL, n.rep = 30, xval.plot = TRUE) #trying to decide how many PCA axes to retain with the cross validation method but i can't get it to run 
+
 intertidal.dapc <- dapc(Int_gl, pop=Int_gl$other$Trajectory, n.pca=8, n.da=2,
      var.loadings=T, pca.info=T, parallel=F)
 
-intertidal.dapc$pca.eig #amt of variation ecxplained by each PC band. we see that 97% of the variation is explained in 14 bands. we'd like to see all the variation explained so we will use all 15 bands.
+intertidal.dapc$pca.eig #amt of variation explained by each PC band. we see that 97% of the variation is explained in 14 bands. we'd like to see all the variation explained so we will use all 15 bands. however, we are getting too many significant snps when using 15 bands so we'll stick to 8 for now.
+intertidal.dapc
+
 totaleig <- sum(intertidal.dapc$pca.eig)
 first8eig <- sum(16.061225, 14.986533, 14.719689, 14.539856, 14.465510, 13.910824, 13.490920, 13.197774)
-first10eig <- sum(16.061225, 14.986533, 14.719689, 14.539856, 14.465510, 13.910824, 13.490920, 13.197774, 12.867169, 12.351743)
 first14eig <- sum(16.061225, 14.986533, 14.719689, 14.539856, 14.465510, 13.910824, 13.490920, 13.197774, 12.867169, 12.351743, 11.680651, 10.171100,  9.744095, 9.249656)
 varexpl <- first8eig / totaleig #variation explained by first 8 PC bands
-var10 <- first10eig / totaleig #variation explained by first 10 PC bands
 var14 <- first14eig / totaleig #variation explained by first 14 PC bands
 
 intertidal.dapc$eig #eigenvalues for intertidal.dapc
 Int_gl$other$Trajectory #levels in DAPC: 1. HH, 2. HS, 3. SS
-intertidal.dapc$var.contr
+
+grp <- find.clusters(Int_gl, max.n.clust=40) #a graph showing the variance explained by PCA
+
+summary(intertidal.dapc) 
+#assign.per.pop indicates the proportions of successful reassignment (based on the discriminant functions) of individuals to their original clusters. Large values indicate clear-cut clusters, while low values suggest admixed groups.
+
+int.ascore <- a.score(intertidal.dapc)
+int.ascore$tab
 
 # Scatterplot of results
 scatter.dapc(intertidal.dapc, grp=Int_gl$other$Trajectory, legend=T) #DA eigenvalues
@@ -191,7 +205,8 @@ compoplot(intertidal.dapc)
 # Which loci contribute the most to distinguishing Healthy vs. Sick individuals?
 loadingplot(abs(intertidal.dapc$var.load), 
             lab.jitter=1, 
-            threshold=quantile(abs(intertidal.dapc$var.load), probs=0.999))#threshold takes the top 0.1% of loci loading onto the DAPC that separates HH HS SS. This has the advantage of allowing one to quantify the contribution of a given allele to a particular structure.
+            threshold=quantile(abs(intertidal.dapc$var.load), probs=0.999), main = "DAPC Loading Plot", xlab = "SNP sites", ylab = "Loadings") 
+# probs=0.999 = threshold takes the top 0.1% of loci loading onto the DAPC that separates HH HS SS. This has the advantage of allowing one to quantify the contribution of a given allele to a particular structure.
 
 # Subsetting data to pull out genes and SNP positions then subsetting to var.load >0.02 (loci that contribute the most to distinguishing H vs S indivs in intertidal pop)
 sum(abs(intertidal.dapc$var.load) > 0.02) #to figure out how many SNPS i should have in new dataset
@@ -234,13 +249,7 @@ Check these genes in the annotation table
 #downloaded with the duck
 ```
 
-
-
-#next: to see if this trend was not just related to this pop, take another ochraceus pop and perform the same analysis. do the same genes pop up in H and S? if so, perhaps they are related to (or linked to genes that are related to) pathogen resistance or susceptibility
-
-```
-
-**COMPARING ALLELES IN SUBTIDAL AND INTERTIDAL**
+**COMPARING ALLELES IN SUBTIDAL AND INTERTIDAL USING DAPC**
 ```{r}
 # Run DAPC to group samples HH v HS/S in both locations
 all.dapc <- dapc(all_gl, pop=all_gl$other$Trajectory, n.pca=8, n.da=2,
@@ -277,28 +286,4 @@ overlap <- as.data.frame(All_SNPS$locname %in% Int_SNPS$locname)
 overlap #there is zero overlap when looking at intertidal loading vs all loadings. we could say that the dapc analysis on the whole dataset could be confounding the differences between location with health status so we aren't really seeing the differences between healthy sick. we are seeing mostly differences between location. For this reason, we are sticking to our intertidal study to control for location.
 ```
 
-
-
-Final project notes from steve and melissa:
-
-30 min presentation: 20 minutes talk, 10 minute questions/discussion
-
-equal time for each person in group
-
-what's the library type that gives rise to 16s data
-how were the reads cleaned and assembled
-
-then for our analysis, more detailed. make clear the choices you made for your analysis. we chose to remove indivs or whatever
-
-results and discussion: make sure you talk about the biology of the results FIRST. then back it up with statistical evidence
-
-take home
-
-talk about what this could be ...in discussion..then follow it up withthe next potential study. next questions? manipulative experiment?
-
-
-
-
-
-
-
+#That's all she wrote#
